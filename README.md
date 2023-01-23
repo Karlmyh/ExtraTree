@@ -1,2 +1,2 @@
-# ERT
-Extrapolated Random Tree
+# ExtraTree
+Extrapolated Tree
