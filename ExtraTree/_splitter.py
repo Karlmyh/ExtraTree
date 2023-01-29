@@ -57,6 +57,7 @@ class GainReductionSplitter(object):
         self.max_features = max_features
         self.search_number = search_number
         self.compute_criterion_reduction = criterion_func[criterion]
+        self.threshold = threshold
         
     def __call__(self, X, X_range, dt_Y):
         n_node_samples, dim = X.shape
@@ -97,7 +98,7 @@ class MSEReductionSplitter(GainReductionSplitter):
     
 class GINIReductionSplitter(GainReductionSplitter):
     def __init__(self, random_state = None, max_features = 1.0, search_number = 10, threshold = None):
-        super(MSEReductionSplitter, self).__init__( criterion = "gini", 
+        super(GINIReductionSplitter, self).__init__( criterion = "gini", 
                                                    random_state = random_state, 
                                                    max_features = max_features, 
                                                    search_number = search_number,
@@ -113,6 +114,7 @@ class GainReductionMaxEdgeSplitter(object):
         np.random.seed(self.random_state)
         self.max_features = max_features
         self.compute_criterion_reduction = criterion_func[criterion]
+        self.threshold = threshold
         
     def __call__(self, X, X_range, dt_Y):
         n_node_samples, dim = X.shape
@@ -148,7 +150,7 @@ class GainReductionMaxEdgeSplitter(object):
 
 class MSEReductionMaxEdgeSplitter(GainReductionSplitter):
     def __init__(self, random_state = None, max_features = 1.0, search_number = None, threshold = None):
-        super(MSEReductionSplitter, self).__init__( criterion = "mse", 
+        super(MSEReductionMaxEdgeSplitter, self).__init__( criterion = "mse", 
                                                    random_state = random_state, 
                                                    max_features = max_features, 
                                                    search_number = search_number,
@@ -157,7 +159,7 @@ class MSEReductionMaxEdgeSplitter(GainReductionSplitter):
     
 class GINIReductionMaxEdgeSplitter(GainReductionSplitter):
     def __init__(self, random_state = None, max_features = 1.0, search_number = None, threshold = None):
-        super(MSEReductionSplitter, self).__init__( criterion = "gini", 
+        super(GINIReductionMaxEdgeSplitter, self).__init__( criterion = "gini", 
                                                    random_state = random_state, 
                                                    max_features = max_features, 
                                                    search_number = search_number,

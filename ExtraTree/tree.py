@@ -79,6 +79,7 @@ class BaseRecursiveTree(object):
 
 
         # begin
+        SPLITTERS[self.splitter]
         splitter = SPLITTERS[self.splitter](self.random_state, self.max_features, self.search_number, self.threshold)
         
         Estimator = ESTIMATORS[self.estimator]
@@ -86,6 +87,7 @@ class BaseRecursiveTree(object):
         builder = RecursiveTreeBuilder(splitter, 
                                        Estimator, 
                                        self.min_samples_split, 
+                                       self.min_samples_leaf,
                                        self.max_depth, 
                                        self.order,
                                        V,
@@ -139,7 +141,7 @@ class BaseRecursiveTree(object):
             Parameter names mapped to their values.
         """
         out = dict()
-        for key in ['min_samples_split', "max_depth", "order", "V", 
+        for key in ['min_samples_split',"min_samples_leaf", "max_depth", "order", "V", 
                     "r_range_low", "r_range_up", "lamda", "max_features",
                     "search_number", "threshold" ]:
             value = getattr(self, key, None)
