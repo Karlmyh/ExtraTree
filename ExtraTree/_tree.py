@@ -1,12 +1,18 @@
 import numpy as np
 from multiprocessing import Pool
-from ._utils import assign_parallel_jobs
+
+
+def assign_parallel_jobs(input_tuple):
+    idx, node_object, X =input_tuple
+    return idx, node_object.predict(X)
+
 
 _TREE_LEAF = -1
 _TREE_UNDEFINED = -2
 
 class TreeStruct(object):
     def __init__(self, n_samples, n_features, log_Xrange=True):
+        
         # Base tree statistic
         self.n_samples = n_samples
         self.n_features = n_features
@@ -19,11 +25,13 @@ class TreeStruct(object):
         self.n_node_samples = []
         self.leaf_ids = []
         self.leafnode_fun = {}  
+        
         # If log_Xrange is True, the range of each node is also logged.  
         self.log_Xrange = log_Xrange
        
         if log_Xrange == True:
             self.node_range = []
+            
     def _node_append(self):
         self.left_child.append(None)
         self.right_child.append(None)
@@ -39,6 +47,7 @@ class TreeStruct(object):
         self.n_node_samples[node_id] = n_node_samples
         if self.log_Xrange == True:
             self.node_range[node_id] = node_range.copy()
+            
         # record children status in parent nodes
         if parent != _TREE_UNDEFINED:
             if is_left:
@@ -85,25 +94,24 @@ class TreeStruct(object):
             result_nodeid[i] = node_id
         return  result_nodeid  
     
-    def predict(self, X, index_by_r=1):
+    def predict(self, X):
         node_affi = self.apply(X)
         y_predict_hat = np.zeros(X.shape[0])
         for leaf_id in self.leaf_ids:
             idx = node_affi == leaf_id
             
-            y_predict_hat[idx] = self.leafnode_fun[leaf_id].predict(X[idx], index_by_r=index_by_r)
+            y_predict_hat[idx] = self.leafnode_fun[leaf_id].predict(X[idx])
             
         return y_predict_hat
     
-    def get_info(self, x, index_by_r=1):
-        
+    def get_info(self, x):
         assert len(x.shape) == 2
         node_affi = self.apply(x)[0]
         
-        return self.leafnode_fun[node_affi].get_info(x, index_by_r=index_by_r)
+        return self.leafnode_fun[node_affi].get_info(x)
        
     
-    def predict_parallel(self, X, index_by_r,parallel_jobs):
+    def predict_parallel(self, X, parallel_jobs):
         node_affi = self.apply(X)
         y_predict_hat = np.zeros(X.shape[0])
         
@@ -112,8 +120,9 @@ class TreeStruct(object):
             #print("using {} threads".format(njobs))
         else:
             njobs = parallel_jobs
+            
         with Pool(njobs) as p:
-            result= p.map(assign_parallel_jobs,[ (leaf_id, self.leafnode_fun[leaf_id], X[node_affi == leaf_id],index_by_r) for leaf_id in self.leaf_ids] )
+            result= p.map(assign_parallel_jobs, [ (leaf_id, self.leafnode_fun[leaf_id], X[node_affi == leaf_id]) for leaf_id in self.leaf_ids] )
 
         for return_vec in result:
             idx = node_affi == return_vec[0]
@@ -127,10 +136,9 @@ class RecursiveTreeBuilder(object):
     def __init__(self, splitter, 
                  Estimator, 
                  min_samples_split, 
-                 max_depth,order,
-                 truncate_ratio_low,
-                 truncate_ratio_up,
-                 step,
+                 min_samples_leaf,
+                 max_depth,
+                 order,
                  V,
                 r_range_up,
                 r_range_low,
@@ -141,18 +149,18 @@ class RecursiveTreeBuilder(object):
         self.Estimator = Estimator
         # about recursive splits
         self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
         self.max_depth = max_depth
         self.order=order
-        self.truncate_ratio_low=truncate_ratio_low
-        self.truncate_ratio_up=truncate_ratio_up      
+        
         self.r_range_up=r_range_up
         self.r_range_low = r_range_low
-        self.step = step
+        
         self.V = V
         self.lamda = lamda
 
         
-    def build(self, tree, X, Y, X_range=None):
+    def build(self, tree, X, Y, X_range = None):
         num_samples = X.shape[0]
         stack = []
         # prepare for stack [X, node_range, parent_status, left_node_status, depth]
@@ -171,8 +179,13 @@ class RecursiveTreeBuilder(object):
                     is_leaf = True
                 else:
                     rd_dim, rd_split = self.splitter(dt_X, node_range , dt_Y )
+                    
+                    
                     ## pruning when the sub nodes contains few samples
-                    if (dt_X[:,rd_dim] >= rd_split).sum() < self.min_samples_split or (dt_X[:,rd_dim] < rd_split).sum() < self.min_samples_split:
+                    
+                    if rd_split is None:
+                        is_leaf = True
+                    elif (dt_X[:,rd_dim] >= rd_split).sum() < self.min_samples_leaf or (dt_X[:, rd_dim] < rd_split).sum() < self.min_samples_leaf:
                         is_leaf = True
                     else:
                         is_leaf = False
@@ -193,9 +206,6 @@ class RecursiveTreeBuilder(object):
                                                             dt_X, 
                                                             dt_Y,
                                                             self.order,
-                                                            self.truncate_ratio_low,
-                                                            self.truncate_ratio_up,
-                                                            self.step,
                                                             self.V,
                                                             self.r_range_up, 
                                                             self.r_range_low,
