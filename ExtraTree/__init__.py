@@ -1,1 +1,1 @@
-from .tree import ExtraTreeRegressor, ExtraTreeClassifier, ExtraTreeDensityEstimator__all__ = ["ExtraTreeRegressor", "ExtraTreeClassifier", "ExtraTreeDensityEstimator"]
+from .tree import StandardTreeRegressor, ExtraTreeRegressor#, ExtraTreeClassifier, ExtraTreeDensityEstimator#__all__ = ["ExtraTreeRegressor", "ExtraTreeClassifier", "ExtraTreeDensityEstimator"]__all__ = ["StandardTreeRegressor",           "ExtraTreeRegressor"]

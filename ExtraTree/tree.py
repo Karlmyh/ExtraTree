@@ -57,9 +57,18 @@ class BaseRecursiveTree(object):
         self.search_number = search_number
         self.threshold = threshold
              
-    def fit(self, X, Y, X_range = None):
+    def fit(self, X, Y, X_range = "unit"):
         
-        self.n_samples, self.n_features = X.shape
+        self.n_samples, self.dim = X.shape
+        
+        if X_range == "unit":
+            X_range = np.array([np.zeros(self.dim),np.ones(self.dim)])
+        if X_range is None:
+            X_range = np.zeros(shape = (2, X.shape[1]))
+            X_range[0] = X.min(axis = 0) - 0.01 * (X.max(axis = 0) - X.min(axis = 0))
+            X_range[1] = X.max(axis = 0) + 0.01 * (X.max(axis = 0) - X.min(axis = 0))
+        self.X_range = X_range
+
 
         
         if self.V == "auto":
@@ -73,7 +82,7 @@ class BaseRecursiveTree(object):
         splitter = SPLITTERS[self.splitter](self.random_state, self.max_features, self.search_number, self.threshold)
         
         Estimator = ESTIMATORS[self.estimator]
-        self.tree_ = TreeStruct(self.n_samples, self.n_features, self.log_Xrange)
+        self.tree_ = TreeStruct(self.n_samples, self.dim, self.log_Xrange)
         builder = RecursiveTreeBuilder(splitter, 
                                        Estimator, 
                                        self.min_samples_split, 
@@ -91,80 +100,6 @@ class BaseRecursiveTree(object):
     def get_info(self,x):
         return self.tree_.get_info(x)
     
-    def predict(self, X):
-        if self.parallel_jobs != 0:
-            #print("we are using parallel computing!")
-            return self.tree_.predict_parallel(X, self.parallel_jobs)
-        else:
-            return self.tree_.predict(X)
-
-
-class RegressionTree(BaseRecursiveTree):
-    def __init__(self, splitter = "maxedge", 
-                 estimator = "extra_regression", 
-                 min_samples_split = 5, 
-                 min_samples_leaf = 2,
-                 max_depth = 2, 
-                 order = 0, 
-                 log_Xrange = True, 
-                 random_state = 666,
-                 parallel_jobs = 0, 
-                 V = 2,
-                 r_range_low = 0,
-                 r_range_up = 1,
-                 lamda = 0.01, 
-                 max_features = 1.0,
-                 search_number = 10,
-                 threshold = 0):
-        super(RegressionTree, self).__init__(splitter = splitter,
-                                             estimator = estimator, 
-                                             min_samples_split = min_samples_split,
-                                             min_samples_leaf = min_samples_leaf,
-                                             max_depth = max_depth, 
-                                             order = order,
-                                             log_Xrange = log_Xrange, 
-                                             random_state = random_state,
-                                             parallel_jobs = parallel_jobs,
-                                             V = V,
-                                             r_range_low = r_range_low,
-                                             r_range_up = r_range_up,
-                                             lamda = lamda,
-                                             max_features = max_features,
-                                             search_number = search_number,
-                                             threshold = threshold)
-        
-    def fit(self, X, Y, X_range = "unit"):
-        
-        self.dim = X.shape[1]
-        
-        if X_range == "unit":
-            X_range = np.array([np.zeros(self.dim),np.ones(self.dim)])
-        if X_range is None:
-            X_range = np.zeros(shape = (2, X.shape[1]))
-            X_range[0] = X.min(axis = 0) - 0.01 * (X.max(axis = 0) - X.min(axis = 0))
-            X_range[1] = X.max(axis = 0) + 0.01 * (X.max(axis = 0) - X.min(axis = 0))
-        self.X_range = X_range
-        
-        super(RegressionTree, self).fit(X,Y,self.X_range)
-        
-        return self
-        
-    def predict(self, X):
-        
-        y_hat = super(RegressionTree, self).predict(X)
-        
-       
-        # check boundary
-        check_lowerbound = (X - self.X_range[0] >= 0).all(axis = 1)
-        check_upperbound = (X - self.X_range[1] <= 0).all(axis = 1)
-        is_inboundary = check_lowerbound * check_upperbound
-        # assign 0 to points outside the boundary
-        y_hat[np.logical_not(is_inboundary)] = 0
-        
-        return y_hat
-    
-
-    
     def get_node_idx(self,X):
         return self.apply(X)
     
@@ -173,7 +108,21 @@ class RegressionTree(BaseRecursiveTree):
     
     def get_all_node(self):
         return list(self.tree_.leafnode_fun.values())
-
+    
+    def predict(self, X):
+        if self.parallel_jobs != 0:
+            #print("we are using parallel computing!")
+            y_hat = self.tree_.predict_parallel(X, self.parallel_jobs)
+        else:
+            y_hat = self.tree_.predict(X)
+        
+        # check boundary
+        check_lowerbound = (X - self.X_range[0] >= 0).all(axis = 1)
+        check_upperbound = (X - self.X_range[1] <= 0).all(axis = 1)
+        is_inboundary = check_lowerbound * check_upperbound
+        # assign 0 to points outside the boundary
+        y_hat[np.logical_not(is_inboundary)] = 0
+        return y_hat
     
     def get_params(self, deep=True):
         """Get parameters for this estimator.
@@ -231,7 +180,74 @@ class RegressionTree(BaseRecursiveTree):
         return self
     
     
-    def score(self, X, y):
+
+
+class StandardTreeRegressor(BaseRecursiveTree):
+    def __init__(self, splitter = "maxedge", 
+                 min_samples_split = 5, 
+                 min_samples_leaf = 2,
+                 max_depth = 2, 
+                 order = 0, 
+                 log_Xrange = True, 
+                 random_state = 666,
+                 parallel_jobs = 0, 
+                 V = 2,
+                 r_range_low = 0,
+                 r_range_up = 1,
+                 lamda = 0.01, 
+                 max_features = 1.0,
+                 search_number = 10,
+                 threshold = 0):
+        super(StandardTreeRegressor, self).__init__(splitter = splitter,
+                                             estimator = "naive_regression", 
+                                             min_samples_split = min_samples_split,
+                                             min_samples_leaf = min_samples_leaf,
+                                             max_depth = max_depth, 
+                                             log_Xrange = log_Xrange, 
+                                             random_state = random_state,
+                                             parallel_jobs = parallel_jobs,
+                                             max_features = max_features,
+                                             search_number = search_number,
+                                             threshold = threshold)
         
+    def score(self, X, y):
+        return -MSE(self.predict(X),y)
+    
+    
+
+class ExtraTreeRegressor(BaseRecursiveTree):
+    def __init__(self, splitter = "maxedge", 
+                 min_samples_split = 5, 
+                 min_samples_leaf = 2,
+                 max_depth = 2, 
+                 order = 0, 
+                 log_Xrange = True, 
+                 random_state = 666,
+                 parallel_jobs = 0, 
+                 V = 2,
+                 r_range_low = 0,
+                 r_range_up = 1,
+                 lamda = 0.01, 
+                 max_features = 1.0,
+                 search_number = 10,
+                 threshold = 0):
+        super(ExtraTreeRegressor, self).__init__(splitter = splitter,
+                                             estimator = "extra_regression", 
+                                             min_samples_split = min_samples_split,
+                                             min_samples_leaf = min_samples_leaf,
+                                             max_depth = max_depth, 
+                                             order = order,
+                                             log_Xrange = log_Xrange, 
+                                             random_state = random_state,
+                                             parallel_jobs = parallel_jobs,
+                                             V = V,
+                                             r_range_low = r_range_low,
+                                             r_range_up = r_range_up,
+                                             lamda = lamda,
+                                             max_features = max_features,
+                                             search_number = search_number,
+                                             threshold = threshold)
+        
+    def score(self, X, y):
         return -MSE(self.predict(X),y)
 
