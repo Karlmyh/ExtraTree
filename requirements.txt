@@ -1,4 +1,4 @@
 numpy
 scikit-learn
-multiprocessing
+multiprocess
 numba
