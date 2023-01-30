@@ -21,7 +21,77 @@ ESTIMATORS = {"naive_regression": NaiveRegressionEstimator,
               "extra_regression": ExtraRegressionEstimator,
               }
 
+
 class BaseRecursiveTree(object):
+    """ Abstact Recursive Tree Structure.
+    
+    
+    Parameters
+    ----------
+    splitter : splitter keyword in SPLITTERS
+        Splitting scheme
+        
+    estimator : estimator keyword in ESTIMATORS
+        Estimation scheme
+        
+    min_samples_split : int
+        The minimum number of samples required to split an internal node.
+    
+    min_samples_leaf : int
+        The minimum number of samples required in the subnodes to split an internal node.
+    
+    max_depth : int
+        Maximum depth of the individual regression estimators.
+        
+    order : int > 0
+        Extrapolation order.
+    
+    log_Xrange : bool
+        If True, the points in each cell is recorded. 
+        
+    random_state : int
+        Random state for building the tree.
+        
+    parallel_jobs : int
+        If 0, no parallel. If positive, the parallization is conducted in parallel_jobs threads.
+        
+    V : int or "auto"
+        Parameter for homothetic estimation. If int, the estimations are taken at 
+        i/V, i = 1, ..., V. If auto, it is set to max(n_samples * 2^(- 2 - max_depth), 5). 
+        
+    r_range_low : float in [0, 1]
+        Lower bound of homothetic ratio to consider.
+    
+    r_range_up : float in [0, 1], > r_range_low
+        Upper bound of homothetic ratio to consider.        
+    
+    lamda : float in [0,infty)
+        Ridge regularization parameter. 
+        
+    max_features : float in (0,1]
+        Proportion of dimensions to consider when splitting. 
+        
+    search_number : int
+        Number of points to search on when looking for best split point.
+        
+    threshold : float in [0, infty]
+        Threshold for haulting when criterion reduction is too small.
+        
+    Attributes
+    ----------
+    n_samples : int
+        Number of samples.
+    
+    dim : int
+        Dimension of covariant.
+        
+    X_range : array-like of shape (2, dim_)
+        Boundary of the support, X_range[0, d] and X_range[1, d] stands for the
+        lower and upper bound of d-th dimension.
+        
+    tree_ : binary tree object defined in _tree.py
+    
+    """
     def __init__(self, 
                  splitter = None, 
                  estimator = None, 
@@ -61,6 +131,7 @@ class BaseRecursiveTree(object):
         
         self.n_samples, self.dim = X.shape
         
+        # check the boundary
         if X_range == "unit":
             X_range = np.array([np.zeros(self.dim),np.ones(self.dim)])
         if X_range is None:
@@ -70,7 +141,7 @@ class BaseRecursiveTree(object):
         self.X_range = X_range
 
 
-        
+        # set V
         if self.V == "auto":
             V =  max(5, int(X.shape[0]* 2**(-self.max_depth-2)))
         else:
@@ -83,7 +154,9 @@ class BaseRecursiveTree(object):
         splitter = SPLITTERS[self.splitter](self.random_state, self.max_features, self.search_number, self.threshold)
         
         Estimator = ESTIMATORS[self.estimator]
+        # initiate a tree structure
         self.tree_ = TreeStruct(self.n_samples, self.dim, self.log_Xrange)
+        # recursively build the tree
         builder = RecursiveTreeBuilder(splitter, 
                                        Estimator, 
                                        self.min_samples_split, 
@@ -99,18 +172,28 @@ class BaseRecursiveTree(object):
         return self
         
     def apply(self, X):
+        """Reture the belonging cell ids. 
+        """
         return self.tree_.apply(X)
     
     def get_info(self, x):
+        """Query the extrapolation information
+        """
         return self.tree_.get_info(x)
     
     def get_node_idx(self,X):
+        """Reture the belonging cell ids. 
+        """
         return self.apply(X)
     
     def get_node(self,X):
+        """Reture the belonging node. 
+        """
         return [self.tree_.leafnode_fun[i] for i in self.get_node_idx(X)]
     
     def get_all_node(self):
+        """Reture all nodes. 
+        """
         return list(self.tree_.leafnode_fun.values())
     
     def predict(self, X):
@@ -187,6 +270,8 @@ class BaseRecursiveTree(object):
 
 
 class StandardTreeRegressor(BaseRecursiveTree):
+    """Standard regression tree using naive estimator.
+    """
     def __init__(self, splitter = "maxedge", 
                  min_samples_split = 5, 
                  min_samples_leaf = 2,
@@ -215,11 +300,15 @@ class StandardTreeRegressor(BaseRecursiveTree):
                                              threshold = threshold)
         
     def score(self, X, y):
+        """Reture the regression score, i.e. MSE.
+        """
         return -MSE(self.predict(X),y)
     
     
 
 class ExtraTreeRegressor(BaseRecursiveTree):
+    """Extrapolated regression tree using extrapolated estimator.
+    """
     def __init__(self, splitter = "maxedge", 
                  min_samples_split = 5, 
                  min_samples_leaf = 2,
@@ -253,5 +342,7 @@ class ExtraTreeRegressor(BaseRecursiveTree):
                                              threshold = threshold)
         
     def score(self, X, y):
+        """Reture the regression score, i.e. MSE.
+        """
         return -MSE(self.predict(X),y)
 

@@ -12,11 +12,99 @@ BASE_LEARNER = {
 
 
 def pred_parallel(input_tuple):
+    """Parallel instrumental function for prediction. 
+
+    Parameters
+    ----------
+    input_tuple : (ree object, array of (n_samples_, dim))
+        The tuple for parallelization.
+    
+    Returns
+    -------
+    prediction : array-like of shape (n_sample_, ) 
+        Prediction.
+    """
     tree, X = input_tuple
     return tree.predict(X)
 
 
 class BaseGradientBoosting(object):
+    """ Abstact Boosting Structure.
+    
+    
+    Parameters
+    ----------
+    n_estimators : int
+        Number of base learners.
+    
+    max_samples : float
+        Proportion of samples to be bootstrapped, can be larger than 1. 
+        
+    rho : float
+        The learning rate. 
+        
+    ensemble_parallel : int
+        If 0, no parallel. If positive, the parallization is conducted in 
+        ensemble_parallel threads.
+    
+    splitter : splitter keyword in SPLITTERS
+        Splitting scheme
+        
+    estimator : estimator keyword in ESTIMATORS
+        Estimation scheme
+        
+    min_samples_split : int
+        The minimum number of samples required to split an internal node.
+    
+    min_samples_leaf : int
+        The minimum number of samples required in the subnodes to split an 
+        internal node.
+    
+    max_depth : int
+        Maximum depth of the individual regression estimators.
+        
+    order : int > 0
+        Extrapolation order.
+    
+    log_Xrange : bool
+        If True, the points in each cell is recorded. 
+        
+    random_state : int
+        Random state for building the tree.
+        
+    parallel_jobs : int
+        If 0, no parallel for base learners. If positive, the parallization is 
+        conducted in parallel_jobs threads. Can not be positive with ensemble_parallel
+        simutanously. 
+        
+    V : int or "auto"
+        Parameter for homothetic estimation. If int, the estimations are taken at 
+        i/V, i = 1, ..., V. If auto, it is set to max(n_samples * 2^(- 2 - max_depth), 5). 
+        
+    r_range_low : float in [0, 1]
+        Lower bound of homothetic ratio to consider.
+    
+    r_range_up : float in [0, 1], > r_range_low
+        Upper bound of homothetic ratio to consider.        
+    
+    lamda : float in [0,infty)
+        Ridge regularization parameter. 
+        
+    max_features : float in (0,1]
+        Proportion of dimensions to consider when splitting. 
+        
+    search_number : int
+        Number of points to search on when looking for best split point.
+        
+    threshold : float in [0, infty]
+        Threshold for haulting when criterion reduction is too small.
+        
+    Attributes
+    ----------
+    trees : list
+        List of base learners. 
+    
+    """
     def __init__(self,  n_estimators = 20, 
                  max_features = 1.0, 
                  max_samples = 1.0,
@@ -165,6 +253,8 @@ class BaseGradientBoosting(object):
     
     
 class GradientBoostingTreeRegressor(BaseGradientBoosting):
+    """Standard gradient boosted regression trees using naive estimator.
+    """
     def __init__(self, n_estimators = 20, 
                  max_features = 1.0, 
                  max_samples = 1.0,
@@ -206,12 +296,16 @@ class GradientBoostingTreeRegressor(BaseGradientBoosting):
                                                  threshold = threshold)
         
     def score(self, X, y):
+        """Reture the regression score, i.e. MSE.
+        """
         return -MSE(self.predict(X),y)
     
     
     
     
 class GradientBoostingExtraTreeRegressor(BaseGradientBoosting):
+    """Gradient boosted extrapolated regression trees using extrapolated trees.
+    """
     def __init__(self, n_estimators = 20, 
                  max_features = 1.0, 
                  max_samples = 1.0,
@@ -253,6 +347,8 @@ class GradientBoostingExtraTreeRegressor(BaseGradientBoosting):
                                                  threshold = threshold)
         
     def score(self, X, y):
+        """Reture the regression score, i.e. MSE.
+        """
         return -MSE(self.predict(X),y)
 
 

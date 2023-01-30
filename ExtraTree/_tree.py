@@ -3,6 +3,21 @@ from multiprocessing import Pool
 
 
 def assign_parallel_jobs(input_tuple):
+    """Parallel instrumental function
+
+    Parameters
+    ----------
+    input_tuple : (int, estimator object, array of (n_samples_, dim))
+        The tuple for parallelization.
+    
+    Returns
+    -------
+    idx : int
+        Index for parallel jobs.
+        
+    prediction : array-like of shape (n_sample_, ) 
+        Prediction.
+    """
     idx, node_object, X =input_tuple
     return idx, node_object.predict(X)
 
@@ -11,6 +26,45 @@ _TREE_LEAF = -1
 _TREE_UNDEFINED = -2
 
 class TreeStruct(object):
+    """ Basic Binary Tree Structure.
+    
+    
+    Parameters
+    ----------
+    
+    log_Xrange : bool
+        If True, the boundary of each cell is recorded. 
+        
+    n_samples : int
+        Number of samples.
+    
+    n_features : int
+        Number of dimensions.
+        
+    Attributes
+    ----------
+    node_count : int
+        Log of number of nodes.
+        
+    left_child : list
+        Log of all left children nodes.
+        
+    right_child : list
+        Log of all right children nodes.
+        
+    feature : array of int
+        Log of splitting dimensions.
+    
+    threshold : array of float 
+        Log of splitting points.
+        
+    n_node_samples : array of int
+        Log of number of points in each node.
+        
+    node_range : list
+        Log of boundary of nodes. 
+    
+    """
     def __init__(self, n_samples, n_features, log_Xrange=True):
         
         # Base tree statistic
@@ -33,6 +87,8 @@ class TreeStruct(object):
             self.node_range = []
             
     def _node_append(self):
+        """Add None to each logs as placeholders. 
+        """
         self.left_child.append(None)
         self.right_child.append(None)
         self.feature.append(None)
@@ -42,6 +98,8 @@ class TreeStruct(object):
             self.node_range.append(None)  
             
     def _add_node(self, parent, is_left, is_leaf, feature, threshold, n_node_samples, node_range=None):
+        """Add a new node. 
+        """
         self._node_append()
         node_id = self.node_count
         self.n_node_samples[node_id] = n_node_samples
@@ -69,6 +127,8 @@ class TreeStruct(object):
         return node_id
     
     def _node_info_to_ndarray(self):
+        """Turn each logs into arrays. 
+        """
         self.left_child = np.array(self.left_child, dtype=np.int32)
         self.right_child = np.array(self.right_child, dtype=np.int32)
         self.feature = np.array(self.feature, dtype=np.int32)
@@ -79,9 +139,13 @@ class TreeStruct(object):
             self.node_range = np.array(self.node_range, dtype=np.float64)
             
     def apply(self, X):
+        """Get node ids.
+        """
         return self._apply_dense(X)
     
     def _apply_dense(self, X):
+        """Get node ids.
+        """
         n = X.shape[0]
         result_nodeid = np.zeros(n, dtype=np.int32)
         for i in range(n):
@@ -95,6 +159,8 @@ class TreeStruct(object):
         return  result_nodeid  
     
     def predict(self, X):
+        """Predict for each x in X. 
+        """
         node_affi = self.apply(X)
         y_predict_hat = np.zeros(X.shape[0])
         for leaf_id in self.leaf_ids:
@@ -105,6 +171,8 @@ class TreeStruct(object):
         return y_predict_hat
     
     def get_info(self, x):
+        """Get the extrapolation information. 
+        """
         assert len(x.shape) == 2
         node_affi = self.apply(x)[0]
         
@@ -112,6 +180,8 @@ class TreeStruct(object):
        
     
     def predict_parallel(self, X, parallel_jobs):
+        """Predict for each x in X using parallel computing
+        """
         node_affi = self.apply(X)
         y_predict_hat = np.zeros(X.shape[0])
         
@@ -133,6 +203,43 @@ class TreeStruct(object):
     
 
 class RecursiveTreeBuilder(object):
+    """ Recursively build a binary tree structure.
+    
+    
+    Parameters
+    ----------
+    splitter : splitter object
+        
+    Estimator : estimator object
+        
+    min_samples_split : int
+        The minimum number of samples required to split an internal node.
+    
+    min_samples_leaf : int
+        The minimum number of samples required in the subnodes to split an internal node.
+    
+    max_depth : int
+        Maximum depth of the individual regression estimators.
+        
+    order : int > 0
+        Extrapolation order.
+    
+        
+    V : int or "auto"
+        Parameter for homothetic estimation. If int, the estimations are taken at 
+        i/V, i = 1, ..., V. If auto, it is set to max(n_samples * 2^(- 2 - max_depth), 5). 
+        
+    r_range_low : float in [0, 1]
+        Lower bound of homothetic ratio to consider.
+    
+    r_range_up : float in [0, 1], > r_range_low
+        Upper bound of homothetic ratio to consider.        
+    
+    lamda : float in [0,infty)
+        Ridge regularization parameter. 
+        
+    
+    """
     def __init__(self, splitter, 
                  Estimator, 
                  min_samples_split, 
@@ -143,6 +250,7 @@ class RecursiveTreeBuilder(object):
                 r_range_up,
                 r_range_low,
                 lamda):
+        
         # about splitter
         self.splitter = splitter
         # about estimator
@@ -161,6 +269,8 @@ class RecursiveTreeBuilder(object):
 
         
     def build(self, tree, X, Y, X_range = None):
+        """Grow the tree.
+        """
         num_samples = X.shape[0]
         stack = []
         # prepare for stack [X, node_range, parent_status, left_node_status, depth]
@@ -175,24 +285,23 @@ class RecursiveTreeBuilder(object):
       
                 n_node_unique_samples = np.unique(np.hstack([dt_X,dt_Y.reshape(-1,1)]), axis=0).shape[0]
                 
+                # if too deep or contains too less samples, no split
                 if depth >= self.max_depth or n_node_unique_samples <= self.min_samples_split:
                     is_leaf = True
                 else:
                     rd_dim, rd_split = self.splitter(dt_X, node_range , dt_Y )
                     
                     
-                    ## pruning when the sub nodes contains few samples
-                    
+                    # if not proper split point (when criterion reduction diminishes)
                     if rd_split is None:
                         is_leaf = True
+                    # pruning when the sub nodes contains few samples
                     elif (dt_X[:,rd_dim] >= rd_split).sum() < self.min_samples_leaf or (dt_X[:, rd_dim] < rd_split).sum() < self.min_samples_leaf:
                         is_leaf = True
+                    
+                    # if not any above, split
                     else:
                         is_leaf = False
-                    
-                
-               
-                    
                     
             # we will apply splits in non-leaf nodes
             if not is_leaf:
@@ -213,6 +322,7 @@ class RecursiveTreeBuilder(object):
                                                            )
         
                 tree.leafnode_fun[node_id].fit()
+                
             # begin branching if the node is not leaf
             if not is_leaf:
                 # update node range status

@@ -6,10 +6,65 @@ from numba import njit
 @njit
 def extrapolate_regression(dt_X, dt_Y, X_extra, X_range, order, 
                               r_range_low, r_range_up, V, lamda):
+    """Compute the extrapolated result based on training samples in the cell.
 
+    Parameters
+    ----------
+    dt_X : array-like of shape (n_sample_, dim_)
+        An array of points in the cell.
+    
+    dt_Y : array-like of shape (n_sample_, )
+        An array of labels in the cell.
+        
+    X_extra : array-like of shape (dim_, )
+        Extrapolated points.
+    
+    X_range : array-like of shape (2, dim_)
+        Boundary of the cell, X_range[0, d] and X_range[1, d] stands for the
+        lower and upper bound of d-th dimension.
+    
+    order : int > 0
+        Extrapolation order.
+    
+    r_range_low : float in [0, 1]
+        Lower bound of homothetic ratio to consider.
+    
+    r_range_up : float in [0, 1], > r_range_low
+        Upper bound of homothetic ratio to consider.
+        
+    V : int
+        Parameter for homothetic estimation. The estimations are taken at 
+        i/V, i = 1, ..., V.
+    
+    lamda : float, >0
+        Ridge regularization parameter. 
+    
+    Returns
+    -------
+    weights : array-like of shape (order, 1)
+        Learnt coefficients of polynomials, weights[0,0] is the final extrapolated 
+        estimation. 
+        
+    all_ratio : array-like of shape (n_sample_, )
+        The sorted vector of homothetic ratios associated to all points in 
+        the cell. 
+        
+    all_y_hat : array-like of shape (n_sample_, )
+        The sorted vector of homothetic estimations associated to all points in 
+        the cell. 
+    
+    all_ratio : array-like of shape (V, )
+        The sorted vector of selected homothetic ratios. 
+        
+    all_y_hat : array-like of shape (V, )
+        The sorted vector of selected homothetic estimations. 
+
+    """
     n_pts = dt_X.shape[0]
     ratio_vec = np.zeros(n_pts)
     
+    
+    # standardize the cell to compute homothetic ratios
     for idx_X, X in enumerate(dt_X):
         centralized = X - X_extra
         for d in range(X_extra.shape[0]):
@@ -38,29 +93,29 @@ def extrapolate_regression(dt_X, dt_Y, X_extra, X_range, order,
         sorted_y_hat[k,0] = np.mean(sorted_y[ :(k+1)])
     all_y_hat = sorted_y_hat.ravel()
     
-    
+    # compute the homothetic estimations for selected sequence
     index_by_r = np.zeros(V)
-    
     for t in range(V,0,-1):
         if_less_than_r = np.where(sorted_ratio <= t/V)[0]
         if len(if_less_than_r) <= 4:
             index_by_r[t-1] = 0
         else:
             index_by_r[t-1] = if_less_than_r.max()
-            
+    
     index_by_r = index_by_r[index_by_r > 0]    
     index_by_r = np.array([int(i) for i in index_by_r])
 
     sorted_y_hat = sorted_y_hat[index_by_r]
     sorted_ratio = sorted_ratio[index_by_r]
     
+    # rule out points outside of [r_range_low, r_range_up]
     ratio_range_idx_up = sorted_ratio <= r_range_up
     ratio_range_idx_low  = sorted_ratio >= r_range_low
     ratio_range_idx = ratio_range_idx_up * ratio_range_idx_low
     sorted_ratio = sorted_ratio[ratio_range_idx]
     sorted_y_hat = sorted_y_hat[ratio_range_idx]
   
-    
+    # solve the least square problem
     ratio_mat = np.zeros((sorted_ratio.shape[0], order+1))
     i=0
     while(i < sorted_ratio.shape[0]):
@@ -85,16 +140,58 @@ def extrapolate_regression(dt_X, dt_Y, X_extra, X_range, order,
    
 
 class NaiveRegressionEstimator(object):
+    """ Naive Regression Estimator
+    
+    The standard estimator which averages labels in the cell.
+    
+    
+    Parameters
+    ----------
+    X_range : array-like of shape (2, dim_)
+        Boundary of the cell, X_range[0, d] and X_range[1, d] stands for the
+        lower and upper bound of d-th dimension.
+        
+    num_samples : int
+        Number of samples in the cell.
+        
+    dt_X : array-like of shape (n_sample_, dim_)
+        An array of points in the cell.
+    
+    dt_Y : array-like of shape (n_sample_, )
+        An array of labels in the cell.
+        
+    V : int
+        Parameter for homothetic estimation. The estimations are taken at 
+        i/V, i = 1, ..., V.
+    
+    order : int > 0
+        Extrapolation order.
+    
+    r_range_low : float in [0, 1]
+        Lower bound of homothetic ratio to consider.
+    
+    r_range_up : float in [0, 1], > r_range_low
+        Upper bound of homothetic ratio to consider.
+        
+    
+    lamda : float, >0
+        Ridge regularization parameter. 
+        
+    Attributes
+    ----------
+    y_hat : float
+        The final estimation, i.e. mean of dt_Y.
+    """
     def __init__(self, 
                  X_range, 
                  num_samples, 
                  dt_X, 
                  dt_Y, 
                  order = None,
-                 V = 0,
-                 r_range_up = 1,
-                 r_range_low = 0,
-                lamda = 0.01):
+                 V = None,
+                 r_range_up = None,
+                 r_range_low = None,
+                lamda = None):
         
         self.dt_Y = dt_Y
         self.n_node_samples = dt_X.shape[0]
@@ -113,6 +210,43 @@ class NaiveRegressionEstimator(object):
     
 
 class ExtraRegressionEstimator(object):
+    """ Extrapolation Regression Estimator
+  
+    
+    Parameters
+    ----------
+    X_range : array-like of shape (2, dim_)
+        Boundary of the cell, X_range[0, d] and X_range[1, d] stands for the
+        lower and upper bound of d-th dimension.
+        
+    num_samples : int
+        Number of samples in the cell.
+        
+    dt_X : array-like of shape (n_sample_, dim_)
+        An array of points in the cell.
+    
+    dt_Y : array-like of shape (n_sample_, )
+        An array of labels in the cell.
+        
+    V : int
+        Parameter for homothetic estimation. The estimations are taken at 
+        i/V, i = 1, ..., V.
+    
+    order : int > 0
+        Extrapolation order.
+    
+    r_range_low : float in [0, 1]
+        Lower bound of homothetic ratio to consider.
+    
+    r_range_up : float in [0, 1], > r_range_low
+        Upper bound of homothetic ratio to consider.
+        
+    
+    lamda : float, >0
+        Ridge regularization parameter. 
+        
+   
+    """
     def __init__(self, 
                  X_range, 
                  num_samples, 
@@ -141,6 +275,20 @@ class ExtraRegressionEstimator(object):
         
     def predict(self, test_X):
         
+        """Prediction function
+
+        Parameters
+        ----------
+        test_X : array-like of shape (n_test_, dim_)
+            An array of test points in the cell.
+        
+        Returns
+        -------
+        y_predict : array-like of shape (n_test_, )
+            The prediction
+        
+        """
+        
         assert self.V!=0
         
         if len(test_X)==0:
@@ -148,6 +296,7 @@ class ExtraRegressionEstimator(object):
 
         pre_vec=[]
 
+        # for each test x, compute extrapolated estimation
         for X in test_X:
             pred_weights, _, _, _, _ = extrapolate_regression(self.dt_X,
                                                                  self.dt_Y, 
@@ -164,6 +313,34 @@ class ExtraRegressionEstimator(object):
         return y_predict
     
     def get_info(self, x):
+        """Query the extrapolation information
+
+        Parameters
+        ----------
+        x : array-like of shape (dim_, 1)
+            The extrapolation point.
+        
+        Returns
+        -------
+        weights : array-like of shape (order, 1)
+            Learnt coefficients of polynomials, weights[0,0] is the final extrapolated 
+            estimation. 
+            
+        all_ratio : array-like of shape (n_sample_, )
+            The sorted vector of homothetic ratios associated to all points in 
+            the cell. 
+            
+        all_y_hat : array-like of shape (n_sample_, )
+            The sorted vector of homothetic estimations associated to all points in 
+            the cell. 
+        
+        all_ratio : array-like of shape (V, )
+            The sorted vector of selected homothetic ratios. 
+            
+        all_y_hat : array-like of shape (V, )
+            The sorted vector of selected homothetic estimations. 
+        
+        """
         
         assert self.V != 0
         assert len(x.shape) == 2
