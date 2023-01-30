@@ -9,18 +9,21 @@ BASE_LEARNER = {
     "extra_tree_regressor": ExtraTreeRegressor
     }
 
-
+def train_parallel(input_tuple):
+    tree, X, y, random_state, max_samples = input_tuple
+    np.random.seed(random_state)
+    bootstrap_idx = np.random.choice(X.shape[0], int(np.ceil(X.shape[0] * max_samples)))
+    return tree.fit( X[bootstrap_idx], y[bootstrap_idx])
 
 def pred_parallel(input_tuple):
     tree, X = input_tuple
     return tree.predict(X)
 
 
-class BaseGradientBoosting(object):
+class BaseForest(object):
     def __init__(self,  n_estimators = 20, 
                  max_features = 1.0, 
                  max_samples = 1.0,
-                 rho = 0.1,
                  ensemble_parallel = 0,
                  splitter = "maxedge", 
                  base_learner = "standard_tree_regressor",
@@ -42,8 +45,6 @@ class BaseGradientBoosting(object):
         self.n_estimators = n_estimators
         self.max_features = max_features
         self.max_samples = max_samples
-        self.rho = rho
-        self.ensemble_parallel = ensemble_parallel
         self.splitter = splitter
         self.base_learner = base_learner
         self.min_samples_split = min_samples_split
@@ -59,7 +60,7 @@ class BaseGradientBoosting(object):
         self.lamda=lamda
         self.search_number = search_number
         self.threshold = threshold
-
+        self.ensemble_parallel = ensemble_parallel
 
         self.trees = []
 
@@ -68,29 +69,55 @@ class BaseGradientBoosting(object):
         
         assert self.ensemble_parallel * self.parallel_jobs == 0
         
-        f_hat = np.zeros(X.shape[0])
-        for i in range(self.n_estimators):
-            bootstrap_idx = np.random.choice(X.shape[0], int(X.shape[0] * self.max_samples))
+        if self.ensemble_parallel != 0:
+            for i in range(self.n_estimators):
+                self.trees.append(BASE_LEARNER[self.base_learner](splitter = self.splitter, 
+                                                 min_samples_split = self.min_samples_split,
+                                                 min_samples_leaf = self.min_samples_leaf,
+                                                 max_depth = self.max_depth,
+                                                 order = self.order, 
+                                                 log_Xrange = self.log_Xrange, 
+                                                 random_state = i,
+                                                 parallel_jobs = self.parallel_jobs,
+                                                 V = self.V,
+                                                 r_range_low = self.r_range_low,
+                                                 r_range_up = self.r_range_up,
+                                                 step = self.step,
+                                                 lamda = self.lamda,
+                                                 max_features = self.max_features,
+                                                 search_number = self.search_number,
+                                                 threshold = self.threshold))
+
+            with Pool( min(self.ensemble_parallel, self.n_estimators)) as p:
+                self.trees = p.map(train_parallel, [(self.trees[i],X,y,i,self.max_samples) for i in range(self.n_estimators)])
+                
+                
+        else:
+            for i in range(self.n_estimators):
+                np.random.seed(i)
             
-            self.trees.append(BASE_LEARNER[self.base_learner](splitter = self.splitter, 
-                                             min_samples_split = self.min_samples_split,
-                                             min_samples_leaf = self.min_samples_leaf,
-                                             max_depth = self.max_depth,
-                                             order = self.order, 
-                                             log_Xrange = self.log_Xrange, 
-                                             random_state = i,
-                                             parallel_jobs = self.parallel_jobs,
-                                             V = self.V,
-                                             r_range_low = self.r_range_low,
-                                             r_range_up = self.r_range_up,
-                                             step = self.step,
-                                             lamda = self.lamda,
-                                             max_features = self.max_features,
-                                             search_number = self.search_number,
-                                             threshold = self.threshold))
-            
-            self.trees[i].fit(X[bootstrap_idx], (y-f_hat)[bootstrap_idx])
-            f_hat += self.rho * self.trees[i].predict(X)
+                bootstrap_idx = np.random.choice(X.shape[0], int(np.ceil(X.shape[0] * self.max_samples)))
+
+
+
+                self.trees.append(BASE_LEARNER[self.base_learner](splitter = self.splitter, 
+                                                 min_samples_split = self.min_samples_split,
+                                                 min_samples_leaf = self.min_samples_leaf,
+                                                 max_depth = self.max_depth,
+                                                 order = self.order, 
+                                                 log_Xrange = self.log_Xrange, 
+                                                 random_state = i,
+                                                 parallel_jobs = self.parallel_jobs,
+                                                 V = self.V,
+                                                 r_range_low = self.r_range_low,
+                                                 r_range_up = self.r_range_up,
+                                                 step = self.step,
+                                                 lamda = self.lamda,
+                                                 max_features = self.max_features,
+                                                 search_number = self.search_number,
+                                                 threshold = self.threshold))
+
+                self.trees[i].fit(X[bootstrap_idx] , y[bootstrap_idx])
         
     def get_params(self, deep=True):
         """Get parameters for this estimator.
@@ -107,7 +134,7 @@ class BaseGradientBoosting(object):
             Parameter names mapped to their values.
         """
         out = dict()
-        for key in [ "n_estimators" ,'min_samples_split', "max_features", "max_samples", "rho"
+        for key in [ "n_estimators" ,'min_samples_split', "max_features", "max_samples"
                     "min_samples_leaf", "max_depth", "order", "V", 
                     "r_range_low", "r_range_up", "lamda",
                     "search_number", "threshold"]:
@@ -152,24 +179,20 @@ class BaseGradientBoosting(object):
         if self.ensemble_parallel == 0:
             y_hat = np.zeros(X.shape[0])
             for i in range(self.n_estimators):
-                y_hat += self.rho * self.trees[i].predict(X)
+                y_hat +=  self.trees[i].predict(X)
+            y_hat /= self.n_estimators
             return y_hat
-
         else:
             with Pool(min(self.ensemble_parallel, self.n_estimators)) as pp:
-                y_hat = pp.map(pred_parallel, [(self.trees[i],X) for i in range(self.n_estimators)])
-            y_hat = self.rho* np.array(y_hat).sum(axis = 0)
+                y_hat = pp.map(pred_parallel, [( self.trees[i], X) for i in range(self.n_estimators)])
+            y_hat= np.array(y_hat).mean(axis = 0)
             return y_hat
     
     
-
-    
-    
-class GradientBoostingTreeRegressor(BaseGradientBoosting):
+class StandardForestRegressor(BaseForest):
     def __init__(self, n_estimators = 20, 
                  max_features = 1.0, 
                  max_samples = 1.0,
-                 rho = 0.1,
                  ensemble_parallel = 0,
                  splitter = "maxedge", 
                  min_samples_split = 5, 
@@ -185,10 +208,9 @@ class GradientBoostingTreeRegressor(BaseGradientBoosting):
                  lamda = 0.01, 
                  search_number = 10,
                  threshold = 0):
-        super(GradientBoostingTreeRegressor, self).__init__(n_estimators = n_estimators,
+        super(StandardForestRegressor, self).__init__(n_estimators = n_estimators,
                                                  max_features = max_features,
                                                  max_samples = max_samples,
-                                                 rho = rho,
                                                  ensemble_parallel = ensemble_parallel,
                                                  splitter = splitter,
                                                  base_learner = "standard_tree_regressor", 
@@ -212,11 +234,10 @@ class GradientBoostingTreeRegressor(BaseGradientBoosting):
     
     
     
-class GradientBoostingExtraTreeRegressor(BaseGradientBoosting):
+class ExtraForestRegressor(BaseForest):
     def __init__(self, n_estimators = 20, 
                  max_features = 1.0, 
                  max_samples = 1.0,
-                 rho = 0.1,
                  ensemble_parallel = 0,
                  splitter = "maxedge", 
                  min_samples_split = 5, 
@@ -232,10 +253,9 @@ class GradientBoostingExtraTreeRegressor(BaseGradientBoosting):
                  lamda = 0.01, 
                  search_number = 10,
                  threshold = 0):
-        super(GradientBoostingExtraTreeRegressor, self).__init__(n_estimators = n_estimators,
+        super(ExtraForestRegressor, self).__init__(n_estimators = n_estimators,
                                                  max_features = max_features,
                                                  max_samples = max_samples,
-                                                 rho = rho,
                                                  ensemble_parallel = ensemble_parallel,
                                                  splitter = splitter,
                                                  base_learner = "extra_tree_regressor", 
@@ -255,13 +275,3 @@ class GradientBoostingExtraTreeRegressor(BaseGradientBoosting):
         
     def score(self, X, y):
         return -MSE(self.predict(X),y)
-
-
-
-
-
-
-
-
-
-

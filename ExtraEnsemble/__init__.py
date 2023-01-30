@@ -1,1 +1,1 @@
-from .boosting import RegressionTreeBoostingfrom .ensemble import RegressionTreeEnsemble__all__ = ["RegressionTreeBoosting", "RegressionTreeEnsemble"]
+from .boosting import GradientBoostingTreeRegressor, GradientBoostingExtraTreeRegressorfrom .forest import StandardForestRegressor, ExtraForestRegressor__all__ = ["GradientBoostingTreeRegressor", "GradientBoostingExtraTreeRegressor",           "StandardForestRegressor", "ExtraForestRegressor"]
