@@ -165,10 +165,11 @@ class ExtraRegressionEstimator(object):
     
     def get_info(self, x):
         
-        assert self.V!=0
+        assert self.V != 0
         assert len(x.shape) == 2
         x = x.ravel()
         
+
         pred_weights, all_r , all_y_hat , used_r, used_y_hat = extrapolate_regression(self.dt_X,
                                                                                          self.dt_Y,  
                                                                                          x, 

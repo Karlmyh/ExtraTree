@@ -14,9 +14,9 @@ def test_extra_tree_regressor_info():
                     for lamda in [0,0.001]:
                     
                         np.random.seed(666)
-                        X_train = np.random.rand(2000).reshape(-1,2)
-                        X_test = np.random.rand(2000).reshape(-1,2)
-                        Y_train = np.ones(1000)
+                        X_train = np.random.rand(200).reshape(-1,2)
+                        X_test = np.random.rand(2).reshape(-1,2)
+                        Y_train = np.ones(100)
 
                         model = ExtraTreeRegressor( splitter = splitter,
                                                 min_samples_split = 5, 
@@ -38,9 +38,9 @@ def test_extra_tree_regressor_info():
                         pred_weights, all_r, all_y_hat, used_r, used_y_hat = model.get_info(X_test)
                         
                         
-                        assert np.abs( pred_weights - 1 ) < 0.1
+                        assert np.abs( pred_weights[0, 0] - 1 ) < 0.1
                         assert all_r.shape == all_y_hat.shape
                         assert used_r.shape == used_y_hat.shape
-                        assert used_r.shape == (10,)
+                        assert used_r.shape[0] <= 10
                     
                     

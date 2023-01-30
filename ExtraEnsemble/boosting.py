@@ -83,7 +83,6 @@ class BaseGradientBoosting(object):
                                              V = self.V,
                                              r_range_low = self.r_range_low,
                                              r_range_up = self.r_range_up,
-                                             step = self.step,
                                              lamda = self.lamda,
                                              max_features = self.max_features,
                                              search_number = self.search_number,
@@ -108,7 +107,7 @@ class BaseGradientBoosting(object):
         """
         out = dict()
         for key in [ "n_estimators" ,'min_samples_split', "max_features", "max_samples", "rho"
-                    "min_samples_leaf", "max_depth", "order", "V", 
+                    "splitter", "min_samples_leaf", "max_depth", "order", "V", 
                     "r_range_low", "r_range_up", "lamda",
                     "search_number", "threshold"]:
             value = getattr(self, key, None)

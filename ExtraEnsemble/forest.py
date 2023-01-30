@@ -82,7 +82,6 @@ class BaseForest(object):
                                                  V = self.V,
                                                  r_range_low = self.r_range_low,
                                                  r_range_up = self.r_range_up,
-                                                 step = self.step,
                                                  lamda = self.lamda,
                                                  max_features = self.max_features,
                                                  search_number = self.search_number,
@@ -111,7 +110,6 @@ class BaseForest(object):
                                                  V = self.V,
                                                  r_range_low = self.r_range_low,
                                                  r_range_up = self.r_range_up,
-                                                 step = self.step,
                                                  lamda = self.lamda,
                                                  max_features = self.max_features,
                                                  search_number = self.search_number,
@@ -135,7 +133,7 @@ class BaseForest(object):
         """
         out = dict()
         for key in [ "n_estimators" ,'min_samples_split', "max_features", "max_samples"
-                    "min_samples_leaf", "max_depth", "order", "V", 
+                    "splitter", "min_samples_leaf", "max_depth", "order", "V", 
                     "r_range_low", "r_range_up", "lamda",
                     "search_number", "threshold"]:
             value = getattr(self, key, None)
@@ -185,7 +183,8 @@ class BaseForest(object):
         else:
             with Pool(min(self.ensemble_parallel, self.n_estimators)) as pp:
                 y_hat = pp.map(pred_parallel, [( self.trees[i], X) for i in range(self.n_estimators)])
-            y_hat= np.array(y_hat).mean(axis = 0)
+            y_hat = np.array(y_hat).mean(axis = 0)
+
             return y_hat
     
     

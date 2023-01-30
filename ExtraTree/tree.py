@@ -96,10 +96,12 @@ class BaseRecursiveTree(object):
                                       self.lamda)
         builder.build(self.tree_, X, Y, X_range)
         
+        return self
+        
     def apply(self, X):
         return self.tree_.apply(X)
     
-    def get_info(self,x):
+    def get_info(self, x):
         return self.tree_.get_info(x)
     
     def get_node_idx(self,X):
@@ -142,7 +144,7 @@ class BaseRecursiveTree(object):
         """
         out = dict()
         for key in ['min_samples_split',"min_samples_leaf", "max_depth", "order", "V", 
-                    "r_range_low", "r_range_up", "lamda", "max_features",
+                    "splitter", "r_range_low", "r_range_up", "lamda", "max_features",
                     "search_number", "threshold" ]:
             value = getattr(self, key, None)
             if deep and hasattr(value, 'get_params'):
