@@ -1,5 +1,5 @@
-from setuptools import find_packages
-from numpy.distutils.core import setup
+from setuptools import find_packages, setup
+
 
 
 import pathlib
@@ -18,8 +18,6 @@ setup(
 
     version = '0.0.1',
 
-    packages = find_packages(),
-
     description = 'Extrapolated Tree',
 
     long_description = long_description,
@@ -31,6 +29,15 @@ setup(
     author = "Yuheng Ma",
 
     author_email = "yma@ruc.edu.cn",
+    
+    classifiers = [
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License"
+    ],
+    
+    package_dir = {'':"src"},
+    
+    packages = find_packages("src"),
 
     python_requires = '>=3',
     
