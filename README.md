@@ -12,7 +12,7 @@
 ### Via PypI
 
 ```bash
-pip install NNDensity
+pip install ExtraTree
 ```
 
 ### Via GitHub
