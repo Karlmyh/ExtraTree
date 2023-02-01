@@ -35,9 +35,8 @@ setup(
         "License :: OSI Approved :: MIT License"
     ],
     
-    package_dir = {'':"src"},
     
-    packages = find_packages("src"),
+    packages = find_packages(),
 
     python_requires = '>=3',
     
