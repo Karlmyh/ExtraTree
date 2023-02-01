@@ -16,7 +16,7 @@ with open('requirements.txt') as inn:
 setup(
     name = 'ExtraTree',
 
-    version = '0.0.1',
+    version = '0.0.3',
 
     description = 'Extrapolated Tree',
 
