@@ -1,5 +1,5 @@
 import numpy as np 
-from ExtraEnsemble import GradientBoostingTreeRegressor, GradientBoostingExtraTreeRegressor
+from ExtraTree.ExtraEnsemble import GradientBoostingTreeRegressor, GradientBoostingExtraTreeRegressor
 
 
 def test_standard_forest_regressor():

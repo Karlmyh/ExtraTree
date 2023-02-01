@@ -1,5 +1,5 @@
 import numpy as np 
-from ExtraTree import StandardTreeRegressor, ExtraTreeRegressor
+from ExtraTree.ExtraTree import StandardTreeRegressor, ExtraTreeRegressor
 from sklearn.model_selection import GridSearchCV
 
 
