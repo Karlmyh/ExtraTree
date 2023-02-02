@@ -159,7 +159,7 @@ class MaxEdgeRandomSplitter(object):
         
         # sub-sample a subset of dimensions
         subsampled_idx = np.random.choice(edge_ratio.shape[0], int(np.ceil(edge_ratio.shape[0] * self.max_features)),replace = False)
-        rd_dim = np.random.choice(np.where(edge_ratio[subsampled_idx] == edge_ratio[subsampled_idx].max())[0])
+        rd_dim = subsampled_idx[np.random.choice(np.where(edge_ratio[subsampled_idx] == edge_ratio[subsampled_idx].max())[0])]
         rddim_min = X_range[0, rd_dim]
         rddim_max = X_range[1, rd_dim]
         rd_split = (rddim_min + rddim_max)/2
@@ -337,7 +337,7 @@ class GainReductionMaxEdgeSplitter(object):
         
         # sub-sample a subset of dimensions
         subsampled_idx = np.random.choice(edge_ratio.shape[0], int(np.ceil(edge_ratio.shape[0] * self.max_features)),replace = False)
-        max_edges = np.where(edge_ratio[subsampled_idx] == edge_ratio[subsampled_idx].max())[0]
+        max_edges = subsampled_idx[np.where(edge_ratio[subsampled_idx] == edge_ratio[subsampled_idx].max())[0]]
         
 
         max_criterion_reduction = np.inf
