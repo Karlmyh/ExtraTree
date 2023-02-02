@@ -225,7 +225,7 @@ class GainReductionSplitter(object):
         # sub-sample a subset of dimensions
         subsampled_idx = np.random.choice(dim, int(np.ceil( dim * self.max_features) ), replace = False)
 
-        max_criterion_reduction = np.inf
+        max_criterion_reduction = 0
         split_dim = None
         split_point = None
         
@@ -241,7 +241,7 @@ class GainReductionSplitter(object):
                 criterion_reduction = self.compute_criterion_reduction(X, dt_Y, d, split)
             
                 # hault if reduction is small
-                if criterion_reduction < max_criterion_reduction and criterion_reduction >= self.threshold:
+                if criterion_reduction > max_criterion_reduction and criterion_reduction >= self.threshold:
                     
                     max_criterion_reduction = criterion_reduction
                     split_dim = d
@@ -340,7 +340,7 @@ class GainReductionMaxEdgeSplitter(object):
         max_edges = subsampled_idx[np.where(edge_ratio[subsampled_idx] == edge_ratio[subsampled_idx].max())[0]]
         
 
-        max_criterion_reduction = np.inf
+        max_criterion_reduction = 0
         split_dim = None
         split_point = None
         
@@ -354,7 +354,7 @@ class GainReductionMaxEdgeSplitter(object):
             criterion_reduction = self.compute_criterion_reduction(X, dt_Y, rd_dim, split)
             
             # hault if reduction is small
-            if criterion_reduction < max_criterion_reduction and criterion_reduction >= self.threshold:
+            if criterion_reduction > max_criterion_reduction and criterion_reduction >= self.threshold:
                 
                 max_criterion_reduction = criterion_reduction
                 split_dim = rd_dim
