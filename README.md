@@ -1,6 +1,6 @@
 # Extrapolated Tree (ExtraTree)
 
-**ExtraTree** implements extrapolated tree methods for regression, classification and density estimation based on pure python. 
+**ExtraTree** implements extrapolated tree methods for regression, classification, and density estimation based on pure Python. 
 
 ## Contents
 
@@ -9,7 +9,7 @@
 
 ## Installation
 
-### Via PypI
+### Via PyPI
 
 ```bash
 pip install ExtraTree
@@ -22,7 +22,7 @@ pip install git+https://github.com/Karlmyh/ExtraTree.git
 ```
 
 
-### Mannul Install
+### Manual Install
   > 
 ```bash
 git clone git@github.com:Karlmyh/ExtraTree.git
